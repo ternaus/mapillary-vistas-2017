@@ -1,9 +1,44 @@
 import torch
 from torch import nn
 from torch.nn import functional as F
+from torch.nn.modules.module import Module
 
 import utils
 import dataset
+
+class SELU(Module):
+    """Applies element-wise, :math:`f(x) = max(0,x) + min(0, alpha * (exp(x) - 1))`
+
+    Args:
+        alpha: the alpha value for the ELU formulation
+        inplace: can optionally do the operation in-place
+
+    Shape:
+        - Input: :math:`(N, *)` where `*` means, any number of additional dimensions
+        - Output: :math:`(N, *)`, same shape as the input
+
+    Examples::
+
+        >>> m = nn.ELU()
+        >>> input = autograd.Variable(torch.randn(2))
+        >>> print(input)
+        >>> print(m(input))
+    """
+
+    def __init__(self, alpha=1.6732632423543772848170429916717, inplace=False):
+        super(SELU, self).__init__()
+        self.alpha = alpha
+        self.inplace = inplace
+        self.scale = 1.0507009873554804934193349852946
+
+    def forward(self, input):
+        return F.elu(input, self.alpha, self.inplace) * self.scale
+
+    def __repr__(self):
+        inplace_str = ', inplace' if self.inplace else ''
+        return self.__class__.__name__ + ' (' \
+            + 'alpha=' + str(self.alpha) \
+            + inplace_str + ')'
 
 
 def conv3x3(in_, out):
@@ -15,11 +50,12 @@ def concat(xs):
 
 
 class Conv3BN(nn.Module):
-    def __init__(self, in_: int, out: int, bn=False):
+    def __init__(self, in_: int, out: int, bn=True):
         super().__init__()
         self.conv = conv3x3(in_, out)
         self.bn = nn.BatchNorm2d(out) if bn else None
-        self.activation = nn.ReLU(inplace=True)
+        # self.activation = nn.ReLU(inplace=True)
+        self.activation = nn.ELU(inplace=True)
 
     def forward(self, x):
         x = self.conv(x)
@@ -50,14 +86,12 @@ class UNet(nn.Module):
                  filter_factors=(1, 2, 4, 8, 16)):
         super().__init__()
         filter_sizes = [filters_base * s for s in filter_factors]
-        self.down, self.up = [], []
+        self.down, self.up = nn.ModuleList(), nn.ModuleList()
         for i, nf in enumerate(filter_sizes):
             low_nf = input_channels if i == 0 else filter_sizes[i - 1]
             self.down.append(self.module(low_nf, nf))
-            setattr(self, 'down_{}'.format(i), self.down[-1])
             if i != 0:
                 self.up.append(self.module(low_nf + nf, low_nf))
-                setattr(self, 'conv_up_{}'.format(i), self.up[-1])
         bottom_s = 4
         pool = nn.MaxPool2d(2, 2)
         pool_bottom = nn.MaxPool2d(bottom_s, bottom_s)
