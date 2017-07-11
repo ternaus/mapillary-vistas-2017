@@ -1,0 +1,16 @@
+{
+ "batch_size": 9,
+ "clean": false,
+ "device_ids": "0,1,2",
+ "dice_weight": 0.0,
+ "epoch_size": null,
+ "fold": 1,
+ "limit": null,
+ "lr": 0.0001,
+ "mode": "train",
+ "n_epochs": 100,
+ "n_folds": 5,
+ "root": "runs/debug",
+ "size": "864x576",
+ "workers": 2
+}
