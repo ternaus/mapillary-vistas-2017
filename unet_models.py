@@ -50,7 +50,7 @@ def concat(xs):
 
 
 class Conv3BN(nn.Module):
-    def __init__(self, in_: int, out: int, bn=True):
+    def __init__(self, in_: int, out: int, bn=False):
         super().__init__()
         self.conv = conv3x3(in_, out)
         self.bn = nn.BatchNorm2d(out) if bn else None
@@ -82,7 +82,7 @@ class UNet(nn.Module):
 
     def __init__(self,
                  input_channels: int=3,
-                 filters_base: int=32,
+                 filters_base: int=48,
                  filter_factors=(1, 2, 4, 8, 16)):
         super().__init__()
         filter_sizes = [filters_base * s for s in filter_factors]

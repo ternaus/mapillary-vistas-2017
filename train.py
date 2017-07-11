@@ -28,7 +28,7 @@ Size = Tuple[int, int]
 class StreetDataset(Dataset):
     def __init__(self, root: Path, size: Size, limit=None):
         self.image_paths = sorted(root.joinpath('images').glob('*.jpg'))
-        self.mask_paths = sorted(root.joinpath('labels').glob('*.png'))
+        self.mask_paths = sorted(root.joinpath('instances').glob('*.png'))
         if limit:
             self.image_paths = self.image_paths[:limit]
             self.mask_paths = self.mask_paths[:limit]
