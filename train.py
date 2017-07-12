@@ -40,7 +40,7 @@ class StreetDataset(Dataset):
     def __getitem__(self, idx):
         img = load_image(self.image_paths[idx], size=self.size)
         mask = load_mask(self.mask_paths[idx], size=self.size)
-        return utils.img_transform(img), torch.from_numpy(np.array(mask / 256, dtype=np.uint8))
+        return utils.img_transform(img), torch.from_numpy(mask)
 
 
 def load_image(path: Path, size: Size, with_size: bool=False):
@@ -69,6 +69,11 @@ def load_mask(path: Path, size: Size):
             return np.load(f)
     else:
         mask = Image.open(path)
+
+        mask = np.array(mask)
+
+        mask = Image.fromarray(np.array(mask / 256, dtype=np.uint8))
+
         mask = np.array(mask.resize(size, resample=Image.NEAREST),
                         dtype=np.int64)
         with gzip.open(str(cached_path), 'wb') as f:
