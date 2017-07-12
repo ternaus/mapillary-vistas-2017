@@ -20,6 +20,7 @@ import tqdm
 import dataset
 from unet_models import UNet, Loss
 import utils
+import cv2
 
 
 Size = Tuple[int, int]
@@ -68,14 +69,15 @@ def load_mask(path: Path, size: Size):
         with gzip.open(str(cached_path), 'rb') as f:
             return np.load(f)
     else:
-        mask = Image.open(path)
+        # mask = Image.open(path)
 
-        mask = np.array(mask)
+        # mask = np.array(mask)
 
-        mask = Image.fromarray(np.array(mask / 255, dtype=np.uint8))
+        # mask = Image.fromarray(np.array(mask / 255, dtype=np.uint8))
 
-        mask = np.array(mask.resize(size, resample=Image.NEAREST),
-                        dtype=np.int64)
+        mask = Image.fromarray(cv2.imread(str(path), 0))
+
+        mask = np.array(mask.resize(size, resample=Image.NEAREST), dtype=np.int64)
         with gzip.open(str(cached_path), 'wb') as f:
             np.save(f, mask)
         return mask
