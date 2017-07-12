@@ -277,6 +277,8 @@ def main():
             shuffle=True,
             num_workers=args.workers,
             batch_size=args.batch_size,
+            pin_memory=True
+
         )
     valid_root = utils.DATA_ROOT / 'validation'
 
