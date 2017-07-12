@@ -6,6 +6,7 @@ from torch.nn.modules.module import Module
 import utils
 import dataset
 
+
 class SELU(Module):
     """Applies element-wise, :math:`f(x) = max(0,x) + min(0, alpha * (exp(x) - 1))`
 

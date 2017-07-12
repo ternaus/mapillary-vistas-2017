@@ -40,7 +40,7 @@ class StreetDataset(Dataset):
     def __getitem__(self, idx):
         img = load_image(self.image_paths[idx], size=self.size)
         mask = load_mask(self.mask_paths[idx], size=self.size)
-        return utils.img_transform(img), torch.from_numpy(mask)
+        return utils.img_transform(img), torch.from_numpy(np.array(mask / 256, dtype=np.uint8))
 
 
 def load_image(path: Path, size: Size, with_size: bool=False):
