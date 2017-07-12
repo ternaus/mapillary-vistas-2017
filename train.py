@@ -72,7 +72,7 @@ def load_mask(path: Path, size: Size):
 
         mask = np.array(mask)
 
-        mask = Image.fromarray(np.array(mask / 256, dtype=np.uint8))
+        mask = Image.fromarray(np.array(mask / 255, dtype=np.uint8))
 
         mask = np.array(mask.resize(size, resample=Image.NEAREST),
                         dtype=np.int64)
