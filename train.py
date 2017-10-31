@@ -62,25 +62,25 @@ def load_image(path: Path, size: Size, with_size: bool=False):
 
 
 def load_mask(path: Path, size: Size):
-    cached_path = path.parent / '{}-{}'.format(*size) / '{}.npy'.format(path.stem)
-    if not cached_path.parent.exists():
-        cached_path.parent.mkdir()
-    if cached_path.exists():
-        with gzip.open(str(cached_path), 'rb') as f:
-            return np.load(f)
-    else:
+    # cached_path = path.parent / '{}-{}'.format(*size) / '{}.npy'.format(path.stem)
+    # if not cached_path.parent.exists():
+    #     cached_path.parent.mkdir()
+    # if cached_path.exists():
+    #     with gzip.open(str(cached_path), 'rb') as f:
+    #         return np.load(f)
+    # else:
         # mask = Image.open(path)
 
         # mask = np.array(mask)
 
         # mask = Image.fromarray(np.array(mask / 255, dtype=np.uint8))
 
-        mask = Image.fromarray(cv2.imread(str(path), 0))
+    mask = Image.fromarray(cv2.imread(str(path), 0))
 
-        mask = np.array(mask.resize(size, resample=Image.NEAREST), dtype=np.int64)
-        with gzip.open(str(cached_path), 'wb') as f:
-            np.save(f, mask)
-        return mask
+    mask = np.array(mask.resize(size, resample=Image.NEAREST), dtype=np.int64)
+        # with gzip.open(str(cached_path), 'wb') as f:
+        #     np.save(f, mask)
+    return mask
 
 
 def validation(model: nn.Module, criterion, valid_loader) -> Dict[str, float]:
