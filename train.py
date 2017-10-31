@@ -151,56 +151,6 @@ class PredictionDataset:
         return utils.img_transform(image), (path.stem, list(size))
 
 
-def save_predictions(root: Path, n: int, inputs, targets, outputs):
-    batch_size = inputs.size(0)
-    inputs_data = inputs.data.cpu().numpy().transpose([0, 2, 3, 1])
-    outputs_data = outputs.data.cpu().numpy()
-    targets_data = targets.data.cpu().numpy()
-    outputs_probs = np.exp(outputs_data)
-    for i in range(batch_size):
-        prefix = str(root.joinpath('{}-{}'.format(str(n).zfill(2), str(i).zfill(2))))
-        save_image(
-            '{}-input.jpg'.format(prefix),
-            skimage.exposure.rescale_intensity(inputs_data[i], out_range=(0, 1)))
-        save_image(
-            '{}-output.jpg'.format(prefix), colored_prediction(outputs_probs[i]))
-        save_image(
-            '{}-target.jpg'.format(prefix), apply_color_map(targets_data[i]))
-
-
-def colored_prediction(prediction: np.ndarray) -> np.ndarray:
-    # FIXME - this is super slow
-    h, w = prediction.shape[1:]
-    planes = []
-    for cls, label in enumerate(dataset.CONFIG['labels']):
-        color = [c / 255 for c in label['color']]
-        plane = np.rollaxis(np.array(color * h * w) .reshape(h, w, 3), 2)
-        plane *= prediction[cls]
-        planes.append(plane)
-    colored = np.sum(planes, axis=0)
-    colored = np.clip(colored, 0, 1)
-    return colored.transpose(1, 2, 0)
-
-
-def apply_color_map(image_array):
-    labels = dataset.CONFIG['labels']
-    color_array = np.zeros((image_array.shape[0], image_array.shape[1], 3),
-                           dtype=np.uint8)
-
-    for label_id, label in enumerate(labels):
-        # set all pixels with the current label to the color
-        # of the current label
-        color_array[image_array == label_id] = label["color"]
-
-    return color_array
-
-
-def save_image(fname, data):
-    with warnings.catch_warnings():
-        warnings.simplefilter('ignore')
-        skimage.io.imsave(fname, data)
-
-
 def predict(model, root: Path, size: Size, out_path: Path, batch_size: int):
     loader = DataLoader(
         dataset=PredictionDataset(root, size),
@@ -302,7 +252,6 @@ def main():
             train_loader=train_loader,
             valid_loader=valid_loader,
             validation=validation,
-            save_predictions=save_predictions,
             patience=2,
         )
 

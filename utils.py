@@ -1,27 +1,20 @@
-from concurrent.futures import ThreadPoolExecutor
-import json
-from datetime import datetime
-import glob
-from itertools import islice
 import functools
-from pathlib import Path
-from pprint import pprint
+import json
 import random
 import shutil
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
+from itertools import islice
+from pathlib import Path
 
-import matplotlib.pyplot as plt
-
-import json_lines
 import numpy as np
-from PIL import Image
-
 import statprof
 import torch
+import tqdm
+from PIL import Image
 from torch import nn
 from torch.autograd import Variable
 from torchvision.transforms import ToTensor, Normalize, Compose
-import tqdm
-
 
 DATA_ROOT = Path(__file__).absolute().parent / 'data'
 
@@ -57,6 +50,7 @@ def profile(fn):
         finally:
             statprof.stop()
             statprof.display()
+
     return wrapped
 
 
@@ -80,7 +74,7 @@ def add_args(parser):
 
 
 def train(args, model: nn.Module, criterion, *, train_loader, valid_loader,
-          validation, init_optimizer, save_predictions=None, n_epochs=None,
+          validation, init_optimizer, n_epochs=None,
           patience=2):
     lr = args.lr
     n_epochs = n_epochs or args.n_epochs
@@ -109,7 +103,6 @@ def train(args, model: nn.Module, criterion, *, train_loader, valid_loader,
     }, str(model_path))
 
     report_each = 10
-    save_prediction_each = report_each * 10
     log = root.joinpath('train.log').open('at', encoding='utf8')
     valid_losses = []
     lr_reset_epoch = epoch
@@ -140,9 +133,6 @@ def train(args, model: nn.Module, criterion, *, train_loader, valid_loader,
                 tq.set_postfix(loss='{:.3f}'.format(mean_loss))
                 if i and i % report_each == 0:
                     write_event(log, step, loss=mean_loss)
-                    if save_predictions and i % save_prediction_each == 0:
-                        p_i = (i // save_prediction_each) % 5
-                        save_predictions(root, p_i, inputs, targets, outputs)
             write_event(log, step, loss=mean_loss)
             tq.close()
             save(epoch + 1)
@@ -154,7 +144,7 @@ def train(args, model: nn.Module, criterion, *, train_loader, valid_loader,
                 best_valid_loss = valid_loss
                 shutil.copy(str(model_path), str(best_model_path))
             elif (patience and epoch - lr_reset_epoch > patience and
-                  min(valid_losses[-patience:]) > best_valid_loss):
+                          min(valid_losses[-patience:]) > best_valid_loss):
                 # "patience" epochs without improvement
                 lr /= 5
                 lr_reset_epoch = epoch
@@ -189,59 +179,3 @@ def imap_fixed_output_buffer(fn, it, threads: int):
             futures.append(executor.submit(fn, x))
         for future in futures:
             yield future.result()
-#
-#
-# def plot(*args, ymin=None, ymax=None, xmin=None, xmax=None, params=False,
-#          max_points=200):
-#     """ Use in the notebook like this:
-#     plot('./runs/oc2', './runs/oc1', 'loss', 'valid_loss')
-#     """
-#     paths, keys = [], []
-#     for x in args:
-#         if x.startswith('.') or x.startswith('/'):
-#             if '*' in x:
-#                 paths.extend(glob.glob(x))
-#             else:
-#                 paths.append(x)
-#         else:
-#             keys.append(x)
-#     plt.figure(figsize=(12, 8))
-#     keys = keys or ['loss', 'valid_loss']
-#
-#     ylim_kw = {}
-#     if ymin is not None:
-#         ylim_kw['ymin'] = ymin
-#     if ymax is not None:
-#         ylim_kw['ymax'] = ymax
-#     if ylim_kw:
-#         plt.ylim(**ylim_kw)
-#
-#     xlim_kw = {}
-#     if xmin is not None:
-#         xlim_kw['xmin'] = xmin
-#     if xmax is not None:
-#         xlim_kw['xmax'] = xmax
-#     if xlim_kw:
-#         plt.xlim(**xlim_kw)
-#     for path in sorted(paths):
-#         path = Path(path)
-#         with json_lines.open(str(path.joinpath('train.log')), broken=True) as f:
-#             events = list(f)
-#         if params:
-#             print(path)
-#             pprint(json.loads(path.joinpath('params.json').read_text()))
-#         for key in sorted(keys):
-#             xs, ys = [], []
-#             for e in events:
-#                 if key in e:
-#                     xs.append(e['step'])
-#                     ys.append(e[key])
-#             if xs:
-#                 if len(xs) > 2 * max_points:
-#                     indices = (np.arange(0, len(xs), len(xs) / max_points)
-#                                .astype(np.int32))
-#                     xs = np.array(xs)[indices[1:]]
-#                     ys = [np.mean(ys[idx: indices[i + 1]])
-#                           for i, idx in enumerate(indices[:-1])]
-#                 plt.plot(xs, ys, label='{}: {}'.format(path, key))
-#     plt.legend()
