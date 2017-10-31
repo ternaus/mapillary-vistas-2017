@@ -45,15 +45,15 @@ class StreetDataset(Dataset):
 
 
 def load_image(path: Path, size: Size, with_size: bool=False):
-    cached_path = path.parent / '{}-{}'.format(*size) / '{}.jpg'.format(path.stem)
-    if not cached_path.parent.exists():
-        cached_path.parent.mkdir()
-    if cached_path.exists():
-        image = utils.load_image(cached_path)
-    else:
-        image = utils.load_image(path)
-        image = image.resize(size, resample=Image.BILINEAR)
-        image.save(str(cached_path))
+    # cached_path = path.parent / '{}-{}'.format(*size) / '{}.jpg'.format(path.stem)
+    # if not cached_path.parent.exists():
+    #     cached_path.parent.mkdir()
+    # if cached_path.exists():
+    #     image = utils.load_image(cached_path)
+    # else:
+    image = utils.load_image(path)
+    image = image.resize(size, resample=Image.BILINEAR)
+        # image.save(str(cached_path))
     if with_size:
         size = Image.open(str(path)).size
         return image, size
@@ -293,6 +293,7 @@ def main():
         root.mkdir(exist_ok=True)
         root.joinpath('params.json').write_text(
             json.dumps(vars(args), indent=True, sort_keys=True))
+
         utils.train(
             init_optimizer=lambda lr: Adam(model.parameters(), lr=lr),
             args=args,

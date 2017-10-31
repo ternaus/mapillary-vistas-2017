@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import json_lines
 import numpy as np
 from PIL import Image
-from sklearn.model_selection import KFold
+
 import statprof
 import torch
 from torch import nn
@@ -48,14 +48,6 @@ def load_image(path: Path) -> Image.Image:
     return Image.open(str(path)).convert('RGB')
 
 
-def train_valid_split(args, img_paths):
-    img_paths = np.array(sorted(img_paths))
-    cv_split = KFold(n_splits=args.n_folds, shuffle=True, random_state=42)
-    img_folds = list(cv_split.split(img_paths))
-    train_ids, valid_ids = img_folds[args.fold - 1]
-    return img_paths[train_ids], img_paths[valid_ids]
-
-
 def profile(fn):
     @functools.wraps(fn)
     def wrapped(*args, **kwargs):
@@ -83,8 +75,6 @@ def add_args(parser):
     arg('--n-epochs', type=int, default=100)
     arg('--lr', type=float, default=0.0001)
     arg('--workers', type=int, default=12)
-    arg('--fold', type=int, default=0)
-    arg('--n-folds', type=int, default=5)
     arg('--clean', action='store_true')
     arg('--epoch-size', type=int)
 
