@@ -18,7 +18,7 @@ from torch.utils.data import DataLoader, Dataset
 import tqdm
 
 import dataset
-from unet_models import UNet, Loss
+from unet_models import Loss, LinkNet34
 import utils
 import cv2
 
@@ -254,11 +254,12 @@ def main():
     args = parser.parse_args()
 
     root = Path(args.root)
-    model = UNet()
+    model = LinkNet34()
     if args.device_ids:
         device_ids = list(map(int, args.device_ids.split(',')))
     else:
         device_ids = None
+
     model = nn.DataParallel(model, device_ids=device_ids).cuda()
     loss = Loss(dice_weight=args.dice_weight)
 

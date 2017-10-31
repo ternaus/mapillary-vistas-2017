@@ -83,7 +83,7 @@ def add_args(parser):
     arg('--n-epochs', type=int, default=100)
     arg('--lr', type=float, default=0.0001)
     arg('--workers', type=int, default=12)
-    arg('--fold', type=int, default=1)
+    arg('--fold', type=int, default=0)
     arg('--n-folds', type=int, default=5)
     arg('--clean', action='store_true')
     arg('--epoch-size', type=int)
@@ -199,59 +199,59 @@ def imap_fixed_output_buffer(fn, it, threads: int):
             futures.append(executor.submit(fn, x))
         for future in futures:
             yield future.result()
-
-
-def plot(*args, ymin=None, ymax=None, xmin=None, xmax=None, params=False,
-         max_points=200):
-    """ Use in the notebook like this:
-    plot('./runs/oc2', './runs/oc1', 'loss', 'valid_loss')
-    """
-    paths, keys = [], []
-    for x in args:
-        if x.startswith('.') or x.startswith('/'):
-            if '*' in x:
-                paths.extend(glob.glob(x))
-            else:
-                paths.append(x)
-        else:
-            keys.append(x)
-    plt.figure(figsize=(12, 8))
-    keys = keys or ['loss', 'valid_loss']
-
-    ylim_kw = {}
-    if ymin is not None:
-        ylim_kw['ymin'] = ymin
-    if ymax is not None:
-        ylim_kw['ymax'] = ymax
-    if ylim_kw:
-        plt.ylim(**ylim_kw)
-
-    xlim_kw = {}
-    if xmin is not None:
-        xlim_kw['xmin'] = xmin
-    if xmax is not None:
-        xlim_kw['xmax'] = xmax
-    if xlim_kw:
-        plt.xlim(**xlim_kw)
-    for path in sorted(paths):
-        path = Path(path)
-        with json_lines.open(str(path.joinpath('train.log')), broken=True) as f:
-            events = list(f)
-        if params:
-            print(path)
-            pprint(json.loads(path.joinpath('params.json').read_text()))
-        for key in sorted(keys):
-            xs, ys = [], []
-            for e in events:
-                if key in e:
-                    xs.append(e['step'])
-                    ys.append(e[key])
-            if xs:
-                if len(xs) > 2 * max_points:
-                    indices = (np.arange(0, len(xs), len(xs) / max_points)
-                               .astype(np.int32))
-                    xs = np.array(xs)[indices[1:]]
-                    ys = [np.mean(ys[idx: indices[i + 1]])
-                          for i, idx in enumerate(indices[:-1])]
-                plt.plot(xs, ys, label='{}: {}'.format(path, key))
-    plt.legend()
+#
+#
+# def plot(*args, ymin=None, ymax=None, xmin=None, xmax=None, params=False,
+#          max_points=200):
+#     """ Use in the notebook like this:
+#     plot('./runs/oc2', './runs/oc1', 'loss', 'valid_loss')
+#     """
+#     paths, keys = [], []
+#     for x in args:
+#         if x.startswith('.') or x.startswith('/'):
+#             if '*' in x:
+#                 paths.extend(glob.glob(x))
+#             else:
+#                 paths.append(x)
+#         else:
+#             keys.append(x)
+#     plt.figure(figsize=(12, 8))
+#     keys = keys or ['loss', 'valid_loss']
+#
+#     ylim_kw = {}
+#     if ymin is not None:
+#         ylim_kw['ymin'] = ymin
+#     if ymax is not None:
+#         ylim_kw['ymax'] = ymax
+#     if ylim_kw:
+#         plt.ylim(**ylim_kw)
+#
+#     xlim_kw = {}
+#     if xmin is not None:
+#         xlim_kw['xmin'] = xmin
+#     if xmax is not None:
+#         xlim_kw['xmax'] = xmax
+#     if xlim_kw:
+#         plt.xlim(**xlim_kw)
+#     for path in sorted(paths):
+#         path = Path(path)
+#         with json_lines.open(str(path.joinpath('train.log')), broken=True) as f:
+#             events = list(f)
+#         if params:
+#             print(path)
+#             pprint(json.loads(path.joinpath('params.json').read_text()))
+#         for key in sorted(keys):
+#             xs, ys = [], []
+#             for e in events:
+#                 if key in e:
+#                     xs.append(e['step'])
+#                     ys.append(e[key])
+#             if xs:
+#                 if len(xs) > 2 * max_points:
+#                     indices = (np.arange(0, len(xs), len(xs) / max_points)
+#                                .astype(np.int32))
+#                     xs = np.array(xs)[indices[1:]]
+#                     ys = [np.mean(ys[idx: indices[i + 1]])
+#                           for i, idx in enumerate(indices[:-1])]
+#                 plt.plot(xs, ys, label='{}: {}'.format(path, key))
+#     plt.legend()
