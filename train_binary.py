@@ -21,9 +21,10 @@ Size = Tuple[int, int]
 
 
 class StreetDataset(Dataset):
-    def __init__(self, root: Path, size: Size, limit=None):
+    def __init__(self, root: Path, size: Size, limit=None, augmentation=False):
         self.image_paths = sorted(root.joinpath('images').glob('*.jpg'))
         self.mask_paths = sorted(root.joinpath('instances').glob('*.png'))
+        self.augmentation = augmentation
         if limit:
             self.image_paths = self.image_paths[:limit]
             self.mask_paths = self.mask_paths[:limit]
@@ -35,6 +36,10 @@ class StreetDataset(Dataset):
     def __getitem__(self, idx):
         img = load_image(self.image_paths[idx], size=self.size)
         mask = load_mask(self.mask_paths[idx], size=self.size)
+
+        if self.augmentation:
+            img, mask = augment(img, mask)
+
         return utils.img_transform(img), torch.from_numpy(mask)
 
 
@@ -87,6 +92,14 @@ def get_dice(y_true, y_pred):
     union = y_true.sum(dim=-2).sum(dim=-1) + y_pred.sum(dim=-2).sum(dim=-1) + epsilon
 
     return 2 * (intersection / union).mean()
+
+
+def augment(img, mask):
+    if np.random.random() < 0.5:
+        img = np.flip(img, axis=1)
+        mask = np.flip(mask, axis=1)
+
+    return img.copy(), mask.copy()
 
 
 # class PredictionDataset:
@@ -167,9 +180,9 @@ def main():
     else:
         limit = valid_limit = None
 
-    def make_loader(ds_root: Path, limit_: int):
+    def make_loader(ds_root: Path, limit_: int, augmentation=False):
         return DataLoader(
-            dataset=StreetDataset(ds_root, size, limit=limit_),
+            dataset=StreetDataset(ds_root, size, limit=limit_, augmentation=augmentation),
             shuffle=True,
             num_workers=args.workers,
             batch_size=args.batch_size,
@@ -179,7 +192,7 @@ def main():
     valid_root = utils.DATA_ROOT / 'validation'
 
     if args.mode == 'train':
-        train_loader = make_loader(utils.DATA_ROOT / 'training', limit)
+        train_loader = make_loader(utils.DATA_ROOT / 'training', limit, augmentation=True)
         valid_loader = make_loader(valid_root, valid_limit)
         if root.exists() and args.clean:
             shutil.rmtree(str(root))
