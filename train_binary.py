@@ -15,6 +15,7 @@ import dataset
 from unet11 import Loss, UNet11
 import utils
 import cv2
+import random
 
 
 Size = Tuple[int, int]
@@ -94,10 +95,23 @@ def get_dice(y_true, y_pred):
     return 2 * (intersection / union).mean()
 
 
-def augment(img, mask):
+def rotate(img, mask, angle):
+    rows, cols, _ = img.shape
+
+    M = cv2.getRotationMatrix2D((int(cols / 2), int(rows / 2)), angle, 1)
+    dst_img = cv2.warpAffine(img, M, (cols, rows), borderMode=cv2.BORDER_REFLECT_101)
+    dst_mask = cv2.warpAffine(mask, M, (cols, rows), borderMode=cv2.BORDER_REFLECT_101)
+    return dst_img, dst_mask
+
+
+def augment(img, mask, max_angle=10):
     if np.random.random() < 0.5:
         img = np.flip(img, axis=1)
         mask = np.flip(mask, axis=1)
+
+    if np.random.random() < 0.5:  # rotations up to max_angle in both directions
+        random_angle = (random.random() * 2 - 1) * max_angle
+        img, mask = rotate(img, mask, random_angle)
 
     return img.copy(), mask.copy()
 
