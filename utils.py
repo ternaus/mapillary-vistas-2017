@@ -130,7 +130,7 @@ def train(args, model: nn.Module, criterion, *, train_loader, valid_loader,
                 tq.update(batch_size)
                 losses.append(loss.data[0])
                 mean_loss = np.mean(losses[-report_each:])
-                tq.set_postfix(loss='{:.3f}'.format(mean_loss))
+                tq.set_postfix(loss='{:.5f}'.format(mean_loss))
                 if i and i % report_each == 0:
                     write_event(log, step, loss=mean_loss)
             write_event(log, step, loss=mean_loss)
