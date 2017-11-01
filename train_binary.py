@@ -18,7 +18,7 @@ from torch.utils.data import DataLoader, Dataset
 import tqdm
 
 import dataset
-from unet_models import Loss, LinkNet34
+from unet11 import Loss, UNet11
 import utils
 import cv2
 
@@ -45,15 +45,8 @@ class StreetDataset(Dataset):
 
 
 def load_image(path: Path, size: Size, with_size: bool=False):
-    # cached_path = path.parent / '{}-{}'.format(*size) / '{}.jpg'.format(path.stem)
-    # if not cached_path.parent.exists():
-    #     cached_path.parent.mkdir()
-    # if cached_path.exists():
-    #     image = utils.load_image(cached_path)
-    # else:
     image = utils.load_image(path)
-    image = image.resize(size, resample=Image.BILINEAR)
-        # image.save(str(cached_path))
+    image = image.resize(size, resample=Image.BICUBIC)
     if with_size:
         size = Image.open(str(path)).size
         return image, size
@@ -62,35 +55,43 @@ def load_image(path: Path, size: Size, with_size: bool=False):
 
 
 def load_mask(path: Path, size: Size):
-    mask = Image.fromarray(cv2.imread(str(path), 0))
+    class_of_interest = 13  # construction--flat--road
+    img = (cv2.imread(str(path), 0) == class_of_interest).astype(np.uint8)
+    mask = Image.fromarray(img)
 
     mask = np.array(mask.resize(size, resample=Image.NEAREST), dtype=np.int64)
-    return mask
+    return mask.astype(np.float32)
 
 
 def validation(model: nn.Module, criterion, valid_loader) -> Dict[str, float]:
     model.eval()
     losses = []
-    confusion_matrix = np.zeros(
-        (dataset.N_CLASSES, dataset.N_CLASSES), dtype=np.uint32)
+
+    dice = []
+
     for inputs, targets in valid_loader:
         inputs = utils.variable(inputs, volatile=True)
         targets = utils.variable(targets)
         outputs = model(inputs)
         loss = criterion(outputs, targets)
         losses.append(loss.data[0])
-        output_classes = outputs.data.cpu().numpy().argmax(axis=1)
-        target_classes = targets.data.cpu().numpy()
-        confusion_matrix += calculate_confusion_matrix_from_arrays(
-            output_classes, target_classes, dataset.N_CLASSES)
+        dice += [get_dice(targets, (outputs > 0.5).float()).data[0]]
+
     valid_loss = np.mean(losses)  # type: float
-    ious = {'iou_{}'.format(cls): iou
-            for cls, iou in enumerate(calculate_iou(confusion_matrix))}
-    average_iou = np.mean(list(ious.values()))
-    print('Valid loss: {:.4f}, average IoU: {:.4f}'.format(valid_loss, average_iou))
-    metrics = {'valid_loss': valid_loss, 'iou': average_iou}
-    metrics.update(ious)
+
+    valid_dice = np.mean(dice)
+
+    print('Valid loss: {:.5f}, dice: {:.5f}'.format(valid_loss, valid_dice))
+    metrics = {'valid_loss': valid_loss, 'dice_loss': valid_dice}
     return metrics
+
+
+def get_dice(y_true, y_pred):
+    epsilon = 1e-15
+    intersection = (y_pred * y_true).sum(dim=-2).sum(dim=-1)
+    union = y_true.sum(dim=-2).sum(dim=-1) + y_pred.sum(dim=-2).sum(dim=-1) + epsilon
+
+    return 2 * (intersection / union).mean()
 
 
 def calculate_confusion_matrix_from_arrays(prediction, ground_truth, nr_labels):
@@ -122,57 +123,48 @@ def calculate_iou(confusion_matrix):
     return ious
 
 
-class PredictionDataset:
-    def __init__(self, root: Path, size: Size):
-        self.paths = list(sorted(root.joinpath('images').glob('*.jpg')))
-        self.size = size
-
-    def __len__(self):
-        return len(self.paths)
-
-    def __getitem__(self, idx):
-        path = self.paths[idx % len(self.paths)]
-        image, size = load_image(path, self.size, with_size=True)
-        return utils.img_transform(image), (path.stem, list(size))
-
-
-def predict(model, root: Path, size: Size, out_path: Path, batch_size: int):
-    loader = DataLoader(
-        dataset=PredictionDataset(root, size),
-        shuffle=False,
-        batch_size=batch_size,
-        num_workers=2,
-    )
-    model.eval()
-    out_path.mkdir(exist_ok=True)
-    for inputs, (stems, sizes) in tqdm.tqdm(loader, desc='Predict'):
-        inputs = utils.variable(inputs, volatile=True)
-        outputs = np.exp(model(inputs).data.cpu().numpy())
-        for output, stem, width, height in zip(outputs, stems, *sizes):
-            save_mask(output.argmax(axis=0).astype(np.uint8),
-                      size=(width, height),
-                      path=out_path / '{}.png'.format(stem))
+# class PredictionDataset:
+#     def __init__(self, root: Path, size: Size):
+#         self.paths = list(sorted(root.joinpath('images').glob('*.jpg')))
+#         self.size = size
+#
+#     def __len__(self):
+#         return len(self.paths)
+#
+#     def __getitem__(self, idx):
+#         path = self.paths[idx % len(self.paths)]
+#         image, size = load_image(path, self.size, with_size=True)
+#         return utils.img_transform(image), (path.stem, list(size))
+#
+#
+# def predict(model, root: Path, size: Size, out_path: Path, batch_size: int):
+#     loader = DataLoader(
+#         dataset=PredictionDataset(root, size),
+#         shuffle=False,
+#         batch_size=batch_size,
+#         num_workers=2,
+#     )
+#     model.eval()
+#     out_path.mkdir(exist_ok=True)
+#     for inputs, (stems, sizes) in tqdm.tqdm(loader, desc='Predict'):
+#         inputs = utils.variable(inputs, volatile=True)
+#         outputs = np.exp(model(inputs).data.cpu().numpy())
+#         for output, stem, width, height in zip(outputs, stems, *sizes):
+#             save_mask(output.argmax(axis=0).astype(np.uint8),
+#                       size=(width, height),
+#                       path=out_path / '{}.png'.format(stem))
 
 
 _palette = None
 
 
-def get_palette():
-    global _palette
-    if _palette is None:
-        mask = Image.open(
-            str(next((utils.DATA_ROOT / 'training' / 'labels').glob('*.png'))))
-        _palette = mask.getpalette()
-    return _palette
-
-
-def save_mask(data: np.ndarray, size: Size, path: Path):
-    assert data.dtype == np.uint8
-    h, w = data.shape
-    mask_img = Image.frombuffer('P', (w, h), data, 'raw', 'P', 0, 1)
-    mask_img.putpalette(get_palette())
-    mask_img = mask_img.resize(size, resample=Image.NEAREST)
-    mask_img.save(str(path))
+# def save_mask(data: np.ndarray, size: Size, path: Path):
+#     assert data.dtype == np.uint8
+#     h, w = data.shape
+#     mask_img = Image.frombuffer('P', (w, h), data, 'raw', 'P', 0, 1)
+#     mask_img.putpalette(get_palette())
+#     mask_img = mask_img.resize(size, resample=Image.NEAREST)
+#     mask_img.save(str(path))
 
 
 def main():
@@ -189,7 +181,7 @@ def main():
     args = parser.parse_args()
 
     root = Path(args.root)
-    model = LinkNet34()
+    model = UNet11()
     if args.device_ids:
         device_ids = list(map(int, args.device_ids.split(',')))
     else:
