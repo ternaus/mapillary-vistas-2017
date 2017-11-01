@@ -5,7 +5,6 @@ import shutil
 from typing import Dict, Tuple
 
 import numpy as np
-from PIL import Image
 import torch
 from torch import nn
 from torch.optim import Adam
@@ -88,35 +87,6 @@ def get_dice(y_true, y_pred):
     union = y_true.sum(dim=-2).sum(dim=-1) + y_pred.sum(dim=-2).sum(dim=-1) + epsilon
 
     return 2 * (intersection / union).mean()
-
-
-def calculate_confusion_matrix_from_arrays(prediction, ground_truth, nr_labels):
-    replace_indices = np.vstack((
-        ground_truth.flatten(),
-        prediction.flatten())
-    ).T
-    confusion_matrix, _ = np.histogramdd(
-        replace_indices,
-        bins=(nr_labels, nr_labels),
-        range=[(0, nr_labels), (0, nr_labels)]
-    )
-    confusion_matrix = confusion_matrix.astype(np.uint32)
-    return confusion_matrix
-
-
-def calculate_iou(confusion_matrix):
-    ious = []
-    for index in range(confusion_matrix.shape[0]):
-        true_positives = confusion_matrix[index, index]
-        false_positives = confusion_matrix[:, index].sum() - true_positives
-        false_negatives = confusion_matrix[index, :].sum() - true_positives
-        denom = true_positives + false_positives + false_negatives
-        if denom == 0:
-            iou = 0
-        else:
-            iou = float(true_positives) / denom
-        ious.append(iou)
-    return ious
 
 
 # class PredictionDataset:
