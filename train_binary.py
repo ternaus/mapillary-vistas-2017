@@ -1,22 +1,20 @@
 import argparse
 import json
-from pathlib import Path
+import random
 import shutil
+from pathlib import Path
 from typing import Dict, Tuple
 
+import cv2
 import numpy as np
 import torch
+import tqdm
 from torch import nn
 from torch.optim import Adam
 from torch.utils.data import DataLoader, Dataset
-import tqdm
 
-import dataset
-from unet11 import Loss, UNet11
 import utils
-import cv2
-import random
-
+from unet11 import Loss, UNet11
 
 Size = Tuple[int, int]
 
@@ -44,12 +42,12 @@ class StreetDataset(Dataset):
         return utils.img_transform(img), torch.from_numpy(np.expand_dims(mask, 0))
 
 
-def load_image(path: Path, size: Tuple, with_size: bool=False):
+def load_image(path: Path, size: Tuple, with_size: bool = False):
     image = utils.load_image(path)
     image = cv2.resize(image, size, interpolation=cv2.INTER_CUBIC)
 
     if with_size:
-        size = image.shape
+        size = image.shape[:2]
         return image, size
     else:
         return image
@@ -128,36 +126,30 @@ class PredictionDataset:
         path = self.paths[idx % len(self.paths)]
         image, size = load_image(path, self.size, with_size=True)
         return utils.img_transform(image), (path.stem, list(size))
-#
-#
-# def predict(model, root: Path, size: Size, out_path: Path, batch_size: int):
-#     loader = DataLoader(
-#         dataset=PredictionDataset(root, size),
-#         shuffle=False,
-#         batch_size=batch_size,
-#         num_workers=2,
-#     )
-#     model.eval()
-#     out_path.mkdir(exist_ok=True)
-#     for inputs, (stems, sizes) in tqdm.tqdm(loader, desc='Predict'):
-#         inputs = utils.variable(inputs, volatile=True)
-#         outputs = np.exp(model(inputs).data.cpu().numpy())
-#         for output, stem, width, height in zip(outputs, stems, *sizes):
-#             save_mask(output.argmax(axis=0).astype(np.uint8),
-#                       size=(width, height),
-#                       path=out_path / '{}.png'.format(stem))
 
 
-_palette = None
+def predict(model, root: Path, size: Tuple, out_path: Path, batch_size: int, workers: int):
+    loader = DataLoader(
+        dataset=PredictionDataset(root, size),
+        shuffle=False,
+        batch_size=batch_size,
+        num_workers=workers,
+    )
+    model.eval()
+    threshold = 0.5
+    out_path.mkdir(exist_ok=True)
+    for inputs, (stems, sizes) in tqdm.tqdm(loader, desc='Predict'):
+        inputs = utils.variable(inputs, volatile=True)
+        outputs = (model(inputs).data.cpu().numpy() > threshold).astype(np.uint8)[:, 0, :, :]
+        for output, stem, width, height in zip(outputs, stems, *sizes):
+            save_mask(output,
+                      size=(width, height),
+                      path=out_path / '{}.png'.format(stem))
 
 
-# def save_mask(data: np.ndarray, size: Size, path: Path):
-#     assert data.dtype == np.uint8
-#     h, w = data.shape
-#     mask_img = Image.frombuffer('P', (w, h), data, 'raw', 'P', 0, 1)
-#     mask_img.putpalette(get_palette())
-#     mask_img = mask_img.resize(size, resample=Image.NEAREST)
-#     mask_img.save(str(path))
+def save_mask(data: np.ndarray, size: Size, path: Path):
+    mask = cv2.resize(data, size, cv2.INTER_AREA) * 255
+    cv2.imwrite(str(path), mask)
 
 
 def main():
@@ -203,6 +195,7 @@ def main():
             pin_memory=True
 
         )
+
     valid_root = utils.DATA_ROOT / 'validation'
 
     if args.mode == 'train':
@@ -236,11 +229,11 @@ def main():
     #     predict(model, valid_root, out_path=root / 'validation',
     #             size=size, batch_size=args.batch_size)
     #
-    # elif args.mode == 'predict_test':
-    #     utils.load_best_model(model, root)
-    #     test_root = utils.DATA_ROOT / 'testing'
-    #     predict(model, test_root, out_path=root / 'testing',
-    #             size=size, batch_size=args.batch_size)
+    elif args.mode == 'predict_test':
+        utils.load_best_model(model, root)
+        test_root = utils.DATA_ROOT / 'testing'
+        predict(model, test_root, out_path=root / 'testing',
+                size=size, batch_size=args.batch_size, workers=args.workers)
 
 
 if __name__ == '__main__':
