@@ -15,6 +15,7 @@ from PIL import Image
 from torch import nn
 from torch.autograd import Variable
 from torchvision.transforms import ToTensor, Normalize, Compose
+import cv2
 
 DATA_ROOT = Path(__file__).absolute().parent / 'data'
 
@@ -37,8 +38,10 @@ img_transform = Compose([
 ])
 
 
-def load_image(path: Path) -> Image.Image:
-    return Image.open(str(path)).convert('RGB')
+def load_image(path: Path) -> np.array:
+    img = cv2.imread(str(path))
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    return img.astype(np.uint8)
 
 
 def profile(fn):

@@ -1,16 +1,11 @@
-#!/usr/bin/env python3
 import argparse
 import json
-import gzip
 from pathlib import Path
 import shutil
 from typing import Dict, Tuple
-import warnings
 
 import numpy as np
 from PIL import Image
-import skimage.io
-import skimage.exposure
 import torch
 from torch import nn
 from torch.optim import Adam
@@ -44,23 +39,24 @@ class StreetDataset(Dataset):
         return utils.img_transform(img), torch.from_numpy(mask)
 
 
-def load_image(path: Path, size: Size, with_size: bool=False):
+def load_image(path: Path, size: Tuple, with_size: bool=False):
     image = utils.load_image(path)
-    image = image.resize(size, resample=Image.BICUBIC)
+    image = cv2.resize(image, size, interpolation=cv2.INTER_CUBIC)
+
     if with_size:
-        size = Image.open(str(path)).size
+        size = image.shape
         return image, size
     else:
         return image
 
 
-def load_mask(path: Path, size: Size):
+def load_mask(path: Path, size: Tuple):
     class_of_interest = 13  # construction--flat--road
-    img = (cv2.imread(str(path), 0) == class_of_interest).astype(np.uint8)
-    mask = Image.fromarray(img)
+    mask = (cv2.imread(str(path), 0) == class_of_interest).astype(np.uint8)
 
-    mask = np.array(mask.resize(size, resample=Image.NEAREST), dtype=np.int64)
-    return mask.astype(np.float32)
+    mask = (cv2.resize(mask, size, interpolation=cv2.INTER_AREA) > 0).astype(np.float32)
+
+    return np.expand_dims(mask, 0)
 
 
 def validation(model: nn.Module, criterion, valid_loader) -> Dict[str, float]:
@@ -232,22 +228,22 @@ def main():
             patience=2,
         )
 
-    elif args.mode == 'valid':
-        valid_loader = make_loader(valid_root, valid_limit)
-        state = torch.load(str(Path(args.root) / 'model.pt'))
-        model.load_state_dict(state['model'])
-        validation(model, loss, tqdm.tqdm(valid_loader, desc='Validation'))
-
-    elif args.mode == 'predict_valid':
-        utils.load_best_model(model, root)
-        predict(model, valid_root, out_path=root / 'validation',
-                size=size, batch_size=args.batch_size)
-
-    elif args.mode == 'predict_test':
-        utils.load_best_model(model, root)
-        test_root = utils.DATA_ROOT / 'testing'
-        predict(model, test_root, out_path=root / 'testing',
-                size=size, batch_size=args.batch_size)
+    # elif args.mode == 'valid':
+    #     valid_loader = make_loader(valid_root, valid_limit)
+    #     state = torch.load(str(Path(args.root) / 'model.pt'))
+    #     model.load_state_dict(state['model'])
+    #     validation(model, loss, tqdm.tqdm(valid_loader, desc='Validation'))
+    #
+    # elif args.mode == 'predict_valid':
+    #     utils.load_best_model(model, root)
+    #     predict(model, valid_root, out_path=root / 'validation',
+    #             size=size, batch_size=args.batch_size)
+    #
+    # elif args.mode == 'predict_test':
+    #     utils.load_best_model(model, root)
+    #     test_root = utils.DATA_ROOT / 'testing'
+    #     predict(model, test_root, out_path=root / 'testing',
+    #             size=size, batch_size=args.batch_size)
 
 
 if __name__ == '__main__':
