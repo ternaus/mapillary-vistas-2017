@@ -40,7 +40,7 @@ class StreetDataset(Dataset):
         if self.augmentation:
             img, mask = augment(img, mask)
 
-        return utils.img_transform(img), torch.from_numpy(mask)
+        return utils.img_transform(img), torch.from_numpy(np.expand_dims(mask, 0))
 
 
 def load_image(path: Path, size: Tuple, with_size: bool=False):
@@ -60,7 +60,7 @@ def load_mask(path: Path, size: Tuple):
 
     mask = (cv2.resize(mask, size, interpolation=cv2.INTER_AREA) > 0).astype(np.float32)
 
-    return np.expand_dims(mask, 0)
+    return mask
 
 
 def validation(model: nn.Module, criterion, valid_loader) -> Dict[str, float]:
@@ -102,18 +102,18 @@ def augment(img, mask):
     return img.copy(), mask.copy()
 
 
-# class PredictionDataset:
-#     def __init__(self, root: Path, size: Size):
-#         self.paths = list(sorted(root.joinpath('images').glob('*.jpg')))
-#         self.size = size
-#
-#     def __len__(self):
-#         return len(self.paths)
-#
-#     def __getitem__(self, idx):
-#         path = self.paths[idx % len(self.paths)]
-#         image, size = load_image(path, self.size, with_size=True)
-#         return utils.img_transform(image), (path.stem, list(size))
+class PredictionDataset:
+    def __init__(self, root: Path, size: Tuple):
+        self.paths = list(sorted(root.joinpath('images').glob('*.jpg')))
+        self.size = size
+
+    def __len__(self):
+        return len(self.paths)
+
+    def __getitem__(self, idx):
+        path = self.paths[idx % len(self.paths)]
+        image, size = load_image(path, self.size, with_size=True)
+        return utils.img_transform(image), (path.stem, list(size))
 #
 #
 # def predict(model, root: Path, size: Size, out_path: Path, batch_size: int):
