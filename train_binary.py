@@ -176,7 +176,7 @@ def predict(model, root: Path, size: Tuple, out_path: Path, batch_size: int, wor
 
 
 def save_mask(data: np.ndarray, size: Tuple, path: Path):
-    mask = cv2.resize(data, size, cv2.INTER_CUBIC) * 255
+    mask = (cv2.resize(data, size, cv2.INTER_CUBIC) > 0).astype(np.uint8) * 255
     cv2.imwrite(str(path), mask)
 
 
