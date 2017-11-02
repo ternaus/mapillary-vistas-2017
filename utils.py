@@ -11,7 +11,7 @@ import numpy as np
 import statprof
 import torch
 import tqdm
-from PIL import Image
+
 from torch import nn
 from torch.autograd import Variable
 from torchvision.transforms import ToTensor, Normalize, Compose

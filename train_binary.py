@@ -12,6 +12,7 @@ import tqdm
 from torch import nn
 from torch.optim import Adam
 from torch.utils.data import DataLoader, Dataset
+from imgaug import augmenters as iaa
 
 import utils
 from unet11 import Loss, UNet11
@@ -47,7 +48,7 @@ def load_image(path: Path, size: Tuple, with_size: bool = False):
     image = cv2.resize(image, size, interpolation=cv2.INTER_CUBIC)
 
     if with_size:
-        size = image.shape[:2]
+        size = image.shape[1], image.shape[0]
         return image, size
     else:
         return image
@@ -57,7 +58,7 @@ def load_mask(path: Path, size: Tuple):
     class_of_interest = 13  # construction--flat--road
     mask = (cv2.imread(str(path), 0) == class_of_interest).astype(np.uint8)
 
-    mask = (cv2.resize(mask, size, interpolation=cv2.INTER_AREA) > 0).astype(np.float32)
+    mask = (cv2.resize(mask, size, interpolation=cv2.INTER_CUBIIC) > 0).astype(np.float32)
 
     return mask
 
@@ -102,7 +103,26 @@ def rotate(img, mask, angle):
     return dst_img, dst_mask
 
 
-def augment(img, mask, max_angle=10):
+def random_hue_saturation_value(image,
+                                hue_shift_limit=(-180, 180),
+                                sat_shift_limit=(-255, 255),
+                                val_shift_limit=(-255, 255)):
+
+    image = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
+    h, s, v = cv2.split(image)
+    hue_shift = np.random.uniform(hue_shift_limit[0], hue_shift_limit[1])
+    h = cv2.add(h, hue_shift)
+    sat_shift = np.random.uniform(sat_shift_limit[0], sat_shift_limit[1])
+    s = cv2.add(s, sat_shift)
+    val_shift = np.random.uniform(val_shift_limit[0], val_shift_limit[1])
+    v = cv2.add(v, val_shift)
+    image = cv2.merge((h, s, v))
+    image = cv2.cvtColor(image, cv2.COLOR_HSV2RGB)
+
+    return image
+
+
+def augment(img, mask, max_angle=10, max_contrast_shift=0.1):
     if np.random.random() < 0.5:
         img = np.flip(img, axis=1)
         mask = np.flip(mask, axis=1)
@@ -110,6 +130,13 @@ def augment(img, mask, max_angle=10):
     if np.random.random() < 0.5:  # rotations up to max_angle in both directions
         random_angle = (random.random() * 2 - 1) * max_angle
         img, mask = rotate(img, mask, random_angle)
+
+    if np.random.random() < 0.5:
+        contrastor = iaa.ContrastNormalization((1-max_contrast_shift, 1+max_contrast_shift), True)
+        img = contrastor.augment_image(img)
+
+    if np.random.random() < 0.5:
+        img = random_hue_saturation_value(img)
 
     return img.copy(), mask.copy()
 
