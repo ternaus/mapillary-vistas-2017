@@ -66,9 +66,11 @@ class DecoderBlock(nn.Module):
 
 
 class LinkNet34(nn.Module):
-    def __init__(self, num_channels=3):
+    def __init__(self, num_channels=3, num_classes=dataset.N_CLASSES):
         super().__init__()
         assert num_channels == 3, "num channels not used now. to use changle first conv layer to support num channels other then 3"
+
+        self.num_classes = num_classes
         filters = [64, 128, 256, 512]
         resnet = models.resnet34(pretrained=True)
 
@@ -93,7 +95,7 @@ class LinkNet34(nn.Module):
         self.finalconv2 = nn.Conv2d(32, 32, 3)
         self.finalrelu2 = nonlinearity(inplace=True)
 
-        self.finalconv3 = nn.Conv2d(32, dataset.N_CLASSES, 2, padding=1)
+        self.finalconv3 = nn.Conv2d(32, self.num_classes, 2, padding=1)
 
     # noinspection PyCallingNonCallable
     def forward(self, x):
@@ -121,5 +123,8 @@ class LinkNet34(nn.Module):
         f4 = self.finalrelu2(f3)
         f5 = self.finalconv3(f4)
 
-        return F.log_softmax(f5)
+        if self.num_classes > 2:
+            return F.log_softmax(f5)
+        else:
+            return F.sigmoid(f5)
 
