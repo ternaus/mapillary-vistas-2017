@@ -58,7 +58,7 @@ def load_mask(path: Path, size: Tuple):
     class_of_interest = 13  # construction--flat--road
     mask = (cv2.imread(str(path), 0) == class_of_interest).astype(np.uint8)
 
-    mask = (cv2.resize(mask, size, interpolation=cv2.INTER_CUBIIC) > 0).astype(np.float32)
+    mask = (cv2.resize(mask, size, interpolation=cv2.INTER_CUBIC) > 0).astype(np.float32)
 
     return mask
 
@@ -175,7 +175,7 @@ def predict(model, root: Path, size: Tuple, out_path: Path, batch_size: int, wor
 
 
 def save_mask(data: np.ndarray, size: Size, path: Path):
-    mask = cv2.resize(data, size, cv2.INTER_AREA) * 255
+    mask = cv2.resize(data, size, cv2.INTER_CUBIC) * 255
     cv2.imwrite(str(path), mask)
 
 
