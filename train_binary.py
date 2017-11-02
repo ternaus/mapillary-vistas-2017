@@ -45,11 +45,12 @@ class StreetDataset(Dataset):
 
 def load_image(path: Path, size: Tuple, with_size: bool = False):
     image = utils.load_image(path)
+    old_size = image.shape[1], image.shape[0]
+
     image = cv2.resize(image, size, interpolation=cv2.INTER_CUBIC)
 
     if with_size:
-        size = image.shape[1], image.shape[0]
-        return image, size
+        return image, old_size
     else:
         return image
 
@@ -132,7 +133,7 @@ def augment(img, mask, max_angle=10, max_contrast_shift=0.1):
         img, mask = rotate(img, mask, random_angle)
 
     if np.random.random() < 0.5:
-        contrastor = iaa.ContrastNormalization((1-max_contrast_shift, 1+max_contrast_shift), True)
+        contrastor = iaa.ContrastNormalization((1 - max_contrast_shift, 1 + max_contrast_shift), True)
         img = contrastor.augment_image(img)
 
     if np.random.random() < 0.5:
@@ -174,7 +175,8 @@ def predict(model, root: Path, size: Tuple, out_path: Path, batch_size: int, wor
                       path=out_path / '{}.png'.format(stem))
 
 
-def save_mask(data: np.ndarray, size: Size, path: Path):
+def save_mask(data: np.ndarray, size: Tuple, path: Path):
+    print(size)
     mask = cv2.resize(data, size, cv2.INTER_CUBIC) * 255
     cv2.imwrite(str(path), mask)
 
@@ -183,7 +185,7 @@ def main():
     parser = argparse.ArgumentParser()
     arg = parser.add_argument
     arg('--mode', choices=['train', 'valid', 'predict_valid', 'predict_test'],
-        default='train')
+        default='predict_test')
     arg('--limit', type=int, help='use only N images for valid/train')
     arg('--dice-weight', type=float, default=0.0)
     arg('--device-ids', type=str, help='For example 0,1 to run on two GPUs')
